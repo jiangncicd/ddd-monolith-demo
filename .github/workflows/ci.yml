@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu      # 与本地 Zulu 8 一致；Lombok 需 JDK 8，勿升级
+          java-version: '8'
+          cache: maven            # 自动缓存 ~/.m2，加速构建
+
+      - name: Build & Test
+        run: mvn -B verify        # verify = compile + test + package
