@@ -43,4 +43,10 @@ public class OrderController {
                 .build();
         return Response.ok(orderPlaceUseCase.placeOrder(command));
     }
+
+    // 故意的编译错误：引用不存在的类型
+    @PostMapping("/broken")
+    public Response<BrokenType> broken() {
+        return null;
+    }
 }
