@@ -19,7 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 用例编排层（对应原 xfg-frame-case 模块，包名用 application 因为 case 是 Java 关键字）。
+ * 用例编排层（包名用 application 因为 case 是 Java 关键字）。
  * <p>
  * 职责：把 user / rule / order 三个领域按"下单"这个用例串起来，并划定事务边界。
  * 纪律：只做编排，不写领域业务规则（规则在 RuleService，算钱在 OrderAggregate）。

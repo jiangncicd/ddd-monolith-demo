@@ -1,0 +1,131 @@
+name: Cleanup Actions Cache
+
+on:
+  schedule:
+    # 每周一 04:00（Asia/Shanghai）运行；GitHub cron 使用 UTC。
+    - cron: "0 20 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "仅打印将要删除的 cache，不实际删除"
+        required: true
+        type: boolean
+        default: true
+      retain_days:
+        description: "非主线、非 open PR cache 的保留天数"
+        required: true
+        type: number
+        default: 14
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: cleanup-actions-cache
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Cleanup stale Actions caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+      RETAIN_DAYS: ${{ github.event_name == 'workflow_dispatch' && inputs.retain_days || 14 }}
+    steps:
+      - name: Delete stale caches safely
+        run: |
+          set -euo pipefail
+
+          days_ago_epoch() {
+            local days="$1"
+            date -u -d "${days} days ago" +%s 2>/dev/null && return
+            date -u -v-"${days}"d +%s
+          }
+
+          iso_epoch() {
+            local value="$1"
+            if [[ "$value" == *.*Z ]]; then
+              value="${value%%.*}Z"
+            fi
+            date -u -d "$value" +%s 2>/dev/null && return
+            date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$value" +%s
+          }
+
+          cutoff="$(days_ago_epoch "$RETAIN_DAYS")"
+          deleted_count=0
+          deleted_bytes=0
+          kept_count=0
+
+          open_pr_refs="$(
+            gh pr list --repo "$REPO" --state open --limit 200 \
+              --json number \
+              --jq '.[] | "refs/pull/\(.number)/merge"'
+          )"
+
+          echo "Repository: $REPO"
+          echo "Dry run: $DRY_RUN"
+          echo "Retain days: $RETAIN_DAYS"
+          echo "Open PR refs:"
+          if [ -n "$open_pr_refs" ]; then
+            printf '%s\n' "$open_pr_refs"
+          else
+            echo "(none)"
+          fi
+          echo
+
+          while IFS=$'\t' read -r id ref last_accessed key size; do
+            keep_reason=""
+            delete_reason=""
+
+            if [ "$ref" = "refs/heads/main" ]; then
+              keep_reason="main branch cache"
+            fi
+
+            if [ -z "$keep_reason" ] && [ -n "$open_pr_refs" ] && printf '%s\n' "$open_pr_refs" | grep -Fxq "$ref"; then
+              keep_reason="open PR cache"
+            fi
+
+            if [ -z "$keep_reason" ]; then
+              if [[ "$ref" == refs/pull/*/merge ]]; then
+                delete_reason="closed or merged PR cache"
+              else
+                last_ts="$(iso_epoch "$last_accessed")"
+                if [ "$last_ts" -lt "$cutoff" ]; then
+                  delete_reason="stale cache older than ${RETAIN_DAYS} days"
+                else
+                  keep_reason="recent non-main cache"
+                fi
+              fi
+            fi
+
+            if [ -n "$keep_reason" ]; then
+              kept_count=$((kept_count + 1))
+              echo "KEEP   id=$id ref=$ref size=$size reason=$keep_reason key=$key"
+              continue
+            fi
+
+            echo "DELETE id=$id ref=$ref size=$size reason=$delete_reason key=$key"
+            deleted_count=$((deleted_count + 1))
+            deleted_bytes=$((deleted_bytes + size))
+
+            if [ "$DRY_RUN" != "true" ]; then
+              gh api --method DELETE "repos/$REPO/actions/caches/$id" --silent
+            fi
+          done < <(
+            gh api "repos/$REPO/actions/caches?per_page=100" --paginate \
+              --jq '.actions_caches[] | [.id, .ref, .last_accessed_at, .key, .size_in_bytes] | @tsv'
+          )
+
+          echo
+          echo "Summary:"
+          echo "  Kept caches: $kept_count"
+          echo "  Deleted candidates: $deleted_count"
+          echo "  Deleted candidate bytes: $deleted_bytes"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "  Dry run only: no cache was deleted."
+          fi

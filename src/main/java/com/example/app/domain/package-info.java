@@ -1,5 +1,5 @@
 /**
- * 领域层（对应原 xfg-frame-domain）—— 整个架构的核心。
+ * 领域层 —— 整个架构的核心。
  * <p>按业务领域分包（{@code order}、{@code rule}、{@code user}），每个领域包内固定三部分：
  * <ul>
  *   <li>{@code model}   —— 模型对象：{@code aggregate} 聚合 / {@code entity} 实体 / {@code valobj} 值对象；</li>

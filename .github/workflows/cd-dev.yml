@@ -1,0 +1,109 @@
+name: CD - Build and Optional Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pom.xml'
+      - 'src/**'
+      - '.github/workflows/cd-dev.yml'
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: '构建完成后部署到 dev'
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-dev
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: '8'
+  APP_NAME: ddd-monolith-demo
+  APP_PORT: '28080'
+  DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/ddd-monolith-demo' }}
+
+jobs:
+  build:
+    name: Build Jar
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Build
+        run: mvn -B -ntp clean package
+
+      - name: Upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-jar
+          path: target/${{ env.APP_NAME }}-*.jar
+          if-no-files-found: error
+
+  deploy-dev:
+    name: Deploy Dev
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    steps:
+      - name: Download jar artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-jar
+          path: artifact
+
+      - name: Setup SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_SSH_KEY"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload and restart
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_USER"
+          JAR="$(find artifact -name '*.jar' -type f | head -n 1)"
+          test -n "$JAR"
+
+          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_DIR'"
+          scp -P "$DEPLOY_PORT" "$JAR" "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/app.jar.new"
+          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash -s" <<EOF
+          set -euo pipefail
+          cd "$DEPLOY_DIR"
+          if [ -f app.pid ] && kill -0 "\$(cat app.pid)" 2>/dev/null; then
+            kill "\$(cat app.pid)"
+            sleep 5
+          fi
+          mv app.jar.new app.jar
+          nohup java -jar app.jar --server.port="$APP_PORT" > app.log 2>&1 &
+          echo \$! > app.pid
+          EOF

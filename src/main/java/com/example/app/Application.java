@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * 单体启动入口（对应原多模块的 xfg-frame-app 模块）。
+ * 单体启动入口。
  * {@code @EnableScheduling} 开启定时任务触发器（trigger/task）。
  */
 @SpringBootApplication

@@ -1,6 +1,6 @@
 # ddd-monolith-demo
 
-单体架构下的 **DDD 领域分包** 示例：把小傅哥 `xfg-frame-ddd` 的**多 Maven module** 压成
+单体架构下的 **DDD 领域分包** 示例：把**多 Maven module** 压成
 **一个 module / 一个 jar**，模块边界降级为**顶层包**，领域分包思想完整保留，并包含
 `application`（case）编排层与 ArchUnit 架构守卫。
 
@@ -45,15 +45,15 @@ H2 控制台：`http://localhost:8080/h2-console`（JDBC URL `jdbc:h2:mem:ddddem
 
 ## 二、多模块 → 单模块的映射
 
-| 原多模块 | 本项目中的包 | 职责 |
-|---|---|---|
-| `xfg-frame-app` | 根包 + `config/` `aop/` | 启动入口、全局配置与切面 |
-| `xfg-frame-types` | `types/` | 通用 `Response` / `Constants` |
-| `xfg-frame-api` | （已删）| 纯单体无对外 RPC，DTO 收进 `trigger/http/dto` |
-| `xfg-frame-trigger` | `trigger/` | 适配器：`http`（可扩展 rpc/mq/task）|
-| `xfg-frame-case` | `application/` | **用例编排层**（`case` 是 Java 关键字，包名用 `application`）|
-| `xfg-frame-domain` | `domain/` | **核心**：按领域分包 |
-| `xfg-frame-infrastructure` | `infrastructure/` | `dao` + `po` + 仓储实现 |
+| 原多模块                    | 本项目中的包 | 职责 |
+|-------------------------|---|---|
+| `forcitis-frame-app`    | 根包 + `config/` `aop/` | 启动入口、全局配置与切面 |
+| `forcitis-frame-types`          | `types/` | 通用 `Response` / `Constants` |
+| `forcitis-frame-api`            | （已删）| 纯单体无对外 RPC，DTO 收进 `trigger/http/dto` |
+| `forcitis-frame-trigger`        | `trigger/` | 适配器：`http`（可扩展 rpc/mq/task）|
+| `forcitis-frame-case`           | `application/` | **用例编排层**（`case` 是 Java 关键字，包名用 `application`）|
+| `forcitis-frame-domain`         | `domain/` | **核心**：按领域分包 |
+| `forcitis-frame-infrastructure` | `infrastructure/` | `dao` + `po` + 仓储实现 |
 
 ---
 

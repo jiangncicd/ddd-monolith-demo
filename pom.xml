@@ -23,6 +23,8 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <archunit.version>1.2.1</archunit.version>
+        <flyway.version>7.15.0</flyway.version>
+        <h2.version>1.4.200</h2.version>
     </properties>
 
     <dependencies>
@@ -49,6 +51,13 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- 数据库迁移：锁定 7.15.0，便于验证 SQL Server 2016 兼容边界 -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>${flyway.version}</version>
         </dependency>
 
         <!-- 精简样板代码 -->

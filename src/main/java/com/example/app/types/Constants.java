@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 通用常量与响应码（对应原 xfg-frame-types 模块）。被各层引用。
+ * 通用常量与响应码。被各层引用。
  */
 public class Constants {
 

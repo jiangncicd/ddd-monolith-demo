@@ -1,0 +1,59 @@
+name: PR Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  maven-test:
+    name: Maven Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+          cache: maven
+
+      - name: Verify Flyway version lock
+        run: |
+          set -euo pipefail
+          FLYWAY_VERSION="$(mvn -B -ntp help:evaluate -Dexpression=flyway.version -q -DforceStdout)"
+          if [ "$FLYWAY_VERSION" != "7.15.0" ]; then
+            echo "::error::flyway.version must stay locked to 7.15.0, actual: $FLYWAY_VERSION"
+            exit 1
+          fi
+
+      - name: Migration hygiene
+        if: github.event_name == 'pull_request'
+        run: bash scripts/ci/migration-hygiene.sh "${{ github.base_ref }}"
+
+      - name: Run tests
+        run: mvn -B -ntp test
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore
