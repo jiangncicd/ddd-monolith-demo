@@ -1,0 +1,33 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ddd-monolith-demo
+  # 内嵌 H2（MySQL 兼容模式），开箱即跑；换真库时改这里即可
+  datasource:
+    url: jdbc:h2:mem:ddddemo;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always          # 启动时执行 schema.sql / data.sql
+  h2:
+    console:
+      enabled: true         # 访问 http://localhost:8080/h2-console
+
+# 对应 config/ThreadPoolConfig 的 @ConfigurationProperties
+thread-pool:
+  core-pool-size: 4
+  max-pool-size: 8
+  queue-capacity: 100
+
+# 外部风控服务地址；留空时 RiskHttpAdapter 降级放行（返回 LOW），保证开箱即跑
+risk:
+  service:
+    url:            # 例如 http://risk.example.com/evaluate
+
+logging:
+  level:
+    com.example.app: info
