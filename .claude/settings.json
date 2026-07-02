@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_FILE_PATHS\" | grep -q '\\.java$'; then export JAVA_HOME=$(/usr/libexec/java_home -v 1.8 2>/dev/null || echo $JAVA_HOME); mvn -B -q test -Dtest=ArchitectureTest -pl . 2>&1 | tail -5; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
